@@ -1,8 +1,25 @@
-import { ErrorBoundary } from 'react-error-boundary';
+import { ErrorBoundary } from "react-error-boundary";
+import { View, StyleSheet, TouchableOpacity } from "react-native";
+import { ThemedText } from "@/components/ThemedText";
 
-function ErrorFallback({error, resetErrorBoundary}) {
+interface ErrorFallbackProps {
+  error: Error;
+  resetErrorBoundary: () => void;
+}
+
+function ErrorFallback({ error, resetErrorBoundary }: ErrorFallbackProps) {
   return (
-    <View style={styles.errorContainer}>
+    <View
+      style={
+        StyleSheet.create({
+          container: {
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        }).container
+      }
+    >
       <ThemedText>Something went wrong:</ThemedText>
       <ThemedText>{error.message}</ThemedText>
       <TouchableOpacity onPress={resetErrorBoundary}>
@@ -10,4 +27,4 @@ function ErrorFallback({error, resetErrorBoundary}) {
       </TouchableOpacity>
     </View>
   );
-} 
+}
