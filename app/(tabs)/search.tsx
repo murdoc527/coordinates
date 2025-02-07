@@ -349,6 +349,24 @@ export default function SearchScreen() {
     setTimeout(() => setMessage(null), 2000);
   };
 
+  // Add delete function
+  const deleteRecentSearch = (index: number) => {
+    setRecentSearches((prev) => {
+      const updatedSearches = prev.filter((_, i) => i !== index);
+      saveToStorage(
+        "recentSearches",
+        updatedSearches,
+        z.array(
+          z.object({
+            text: z.string(),
+            timestamp: z.number(),
+          })
+        )
+      );
+      return updatedSearches;
+    });
+  };
+
   // Update the saved locations section in the render
   const renderSavedLocation = (location: SavedLocation) => (
     <View key={location.id} style={styles.savedItem}>
@@ -416,7 +434,8 @@ export default function SearchScreen() {
       borderColor: "#ccc",
       borderRadius: 5,
       paddingHorizontal: 10,
-      backgroundColor: "#fff",
+      backgroundColor: colorScheme === "dark" ? "#25292e" : "#fff",
+      color: colorScheme === "dark" ? "#fff" : "#000",
     },
     editButton: {
       padding: 10,
@@ -463,6 +482,8 @@ export default function SearchScreen() {
       borderRadius: 10,
       alignItems: "center",
       gap: 5,
+      width: "74%",
+      alignSelf: "center",
     },
     coordinateTitle: {
       fontSize: 16,
@@ -481,6 +502,8 @@ export default function SearchScreen() {
       padding: 10,
       borderRadius: 5,
       gap: 10,
+      width: "74%",
+      alignSelf: "center",
     },
     recentItemContent: {
       flex: 1,
@@ -509,7 +532,7 @@ export default function SearchScreen() {
       backgroundColor: colorScheme === "dark" ? "#25292e" : "#f0f0f0",
       borderRadius: 8,
       gap: 12,
-      width: "80%",
+      width: "74%",
     },
     savedLocationTitle: {
       fontSize: 16,
@@ -565,6 +588,11 @@ export default function SearchScreen() {
       width: "100%",
       gap: 10,
     },
+    searchInputContainer: {
+      position: "relative",
+      width: "74%",
+      alignSelf: "center",
+    },
     input: {
       height: 40,
       width: "70%",
@@ -589,20 +617,47 @@ export default function SearchScreen() {
       borderRadius: 5,
       marginLeft: 10,
     },
+    deleteButton: {
+      padding: 8,
+      borderRadius: 5,
+      marginLeft: 10,
+    },
+    clearButton: {
+      position: "absolute",
+      right: 10,
+      top: 10,
+      padding: 4,
+    },
   });
 
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.input}
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder="Enter coordinates..."
-            placeholderTextColor={colorScheme === "dark" ? "#666" : "#999"}
-            onSubmitEditing={() => handleSearch(searchText)}
-          />
+          <View style={styles.searchInputContainer}>
+            <TextInput
+              style={[
+                styles.editInput,
+                { color: colorScheme === "dark" ? "#fff" : "#000" },
+              ]}
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder="Enter coordinates..."
+              placeholderTextColor={colorScheme === "dark" ? "#666" : "#999"}
+            />
+            {searchText.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={() => setSearchText("")}
+              >
+                <FontAwesome
+                  name="times-circle"
+                  size={18}
+                  color={colorScheme === "dark" ? "#8E8E93" : "#666"}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
           <TouchableOpacity
             style={styles.searchButton}
             onPress={() => handleSearch(searchText)}
@@ -619,6 +674,18 @@ export default function SearchScreen() {
 
         {coordinates && (
           <View style={styles.resultContainer}>
+            <View style={styles.coordinateBox}>
+              <ThemedText style={styles.coordinateTitle}>
+                My Location
+              </ThemedText>
+              <ThemedText style={styles.coordinateText}>
+                Latitude: {coordinates.latitude.toFixed(6)}
+              </ThemedText>
+              <ThemedText style={styles.coordinateText}>
+                Longitude: {coordinates.longitude.toFixed(6)}
+              </ThemedText>
+            </View>
+
             <View style={styles.coordinateBox}>
               <ThemedText style={styles.coordinateTitle}>
                 Decimal Degrees (DD)
@@ -749,6 +816,12 @@ export default function SearchScreen() {
                   <ThemedText style={styles.recentTimestamp}>
                     {new Date(search.timestamp).toLocaleString()}
                   </ThemedText>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => deleteRecentSearch(index)}
+                  >
+                    <FontAwesome name="trash" size={16} color="#FF3B30" />
+                  </TouchableOpacity>
                 </View>
               </TouchableOpacity>
             ))}
@@ -860,6 +933,8 @@ const getStyles = (colorScheme: "light" | "dark") =>
       borderRadius: 10,
       alignItems: "center",
       gap: 5,
+      width: "74%",
+      alignSelf: "center",
     },
     coordinateTitle: {
       fontSize: 16,
@@ -909,6 +984,8 @@ const getStyles = (colorScheme: "light" | "dark") =>
       padding: 10,
       borderRadius: 5,
       gap: 10,
+      width: "74%",
+      alignSelf: "center",
     },
     savedContainer: {
       marginTop: 20,
@@ -922,7 +999,7 @@ const getStyles = (colorScheme: "light" | "dark") =>
       backgroundColor: colorScheme === "dark" ? "#25292e" : "#f0f0f0",
       borderRadius: 8,
       gap: 12,
-      width: "80%",
+      width: "74%",
     },
     savedLocationTitle: {
       fontSize: 16,
@@ -954,5 +1031,9 @@ const getStyles = (colorScheme: "light" | "dark") =>
       padding: 10,
       backgroundColor: "#25292e20",
       borderRadius: 5,
+    },
+    deleteButton: {
+      padding: 8,
+      marginLeft: 10,
     },
   });
