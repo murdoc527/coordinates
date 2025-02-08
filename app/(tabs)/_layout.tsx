@@ -13,18 +13,18 @@ export default function TabLayout() {
         tabBarStyle: Platform.select({
           android: {
             height: 60,
-            position: "fixed",
+            position: 'absolute',
             bottom: 0,
             left: 0,
             right: 0,
-            elevation: 0,
+            elevation: 8,
             backgroundColor: colorScheme === "dark" ? "#000000" : "#FFFFFF",
             borderTopWidth: 1,
             borderTopColor: colorScheme === "dark" ? "#1C1C1E" : "#E5E5EA",
-            zIndex: 0,
+            zIndex: 1000,
           },
         }),
-        tabBarHideOnKeyboard: Platform.OS === "ios",
+        tabBarHideOnKeyboard: Platform.OS === "android" ? false : true,
       }}
     >
       <Tabs.Screen

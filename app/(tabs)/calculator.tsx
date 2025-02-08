@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -8,6 +8,10 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
+  Keyboard,
+  Animated,
+  LayoutAnimation,
+  UIManager,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -300,6 +304,13 @@ const SpeedUnitPicker = ({
   );
 };
 
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
+
 export default function CalculatorScreen() {
   const [calculationType, setCalculationType] =
     useState<CalculationType>("speed");
@@ -312,10 +323,64 @@ export default function CalculatorScreen() {
   const [distanceUnit, setDistanceUnit] = useState<DistanceUnit>("nm");
   const [speedUnit, setSpeedUnit] = useState<SpeedUnit>("kts");
   const colorScheme = useColorScheme();
+  const [keyboardSpace, setKeyboardSpace] = useState(0);
+  const animatedViewRef = useRef(new Animated.Value(0)).current;
 
-  // Add automatic calculation effect
+  // Update the useEffect for automatic calculation
   useEffect(() => {
-    calculateResult();
+    const distanceValue = parseFloat(distance) || 0;
+    const speedValue = parseFloat(speed) || 0;
+    const totalHours =
+      (parseFloat(hours) || 0) +
+      (parseFloat(minutes) || 0) / 60 +
+      (parseFloat(seconds) || 0) / 3600 +
+      (parseFloat(centiseconds) || 0) / 360000;
+
+    try {
+      // For speed calculation
+      if (calculationType === "speed") {
+        if (distanceValue <= 0 || totalHours <= 0) {
+          setSpeed(""); // Clear speed if either input is empty/zero
+        } else {
+          const calculatedSpeed = distanceValue / totalHours;
+          setSpeed(calculatedSpeed.toFixed(2));
+        }
+      } 
+      // For distance calculation
+      else if (calculationType === "distance") {
+        if (speedValue <= 0 || totalHours <= 0) {
+          setDistance(""); // Clear distance if either input is empty/zero
+        } else {
+          const calculatedDistance = speedValue * totalHours;
+          setDistance(calculatedDistance.toFixed(2));
+        }
+      } 
+      // For time calculation
+      else if (calculationType === "time") {
+        if (distanceValue <= 0 || speedValue <= 0) {
+          // Clear all time fields if either input is empty/zero
+          setHours("");
+          setMinutes("");
+          setSeconds("");
+          setCentiseconds("");
+        } else {
+          const totalHoursCalculated = distanceValue / speedValue;
+          const hoursInt = Math.floor(totalHoursCalculated);
+          const minutesDecimal = (totalHoursCalculated - hoursInt) * 60;
+          const minutesInt = Math.floor(minutesDecimal);
+          const secondsDecimal = (minutesDecimal - minutesInt) * 60;
+          const secondsInt = Math.floor(secondsDecimal);
+          const centisecondsInt = Math.floor((secondsDecimal - secondsInt) * 100);
+
+          setHours(hoursInt.toString());
+          setMinutes(minutesInt.toString().padStart(2, "0"));
+          setSeconds(secondsInt.toString().padStart(2, "0"));
+          setCentiseconds(centisecondsInt.toString().padStart(2, "0"));
+        }
+      }
+    } catch (error) {
+      console.log("Calculation error:", error);
+    }
   }, [
     distance,
     speed,
@@ -325,51 +390,46 @@ export default function CalculatorScreen() {
     centiseconds,
     distanceUnit,
     speedUnit,
+    calculationType,
   ]);
 
-  const calculateResult = () => {
-    const totalHours =
-      (parseFloat(hours) || 0) +
-      (parseFloat(minutes) || 0) / 60 +
-      (parseFloat(seconds) || 0) / 3600 +
-      (parseFloat(centiseconds) || 0) / 360000;
+  useEffect(() => {
+    const keyboardWillShow = (e: any) => {
+      Animated.spring(animatedViewRef, {
+        toValue: -e.endCoordinates.height / 3, // Adjust this divisor to control how far it moves up
+        useNativeDriver: true,
+        friction: 8, // Lower = more bouncy
+        tension: 40, // Higher = faster animation
+        restSpeedThreshold: 100,
+        restDisplacementThreshold: 40,
+      }).start();
+    };
 
-    const distanceValue = parseFloat(distance) || 0;
-    const speedValue = parseFloat(speed) || 0;
+    const keyboardWillHide = () => {
+      Animated.spring(animatedViewRef, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 40,
+        restSpeedThreshold: 100,
+        restDisplacementThreshold: 40,
+      }).start();
+    };
 
-    try {
-      if (calculationType === "speed" && distanceValue > 0 && totalHours > 0) {
-        const calculatedSpeed = distanceValue / totalHours;
-        setSpeed(calculatedSpeed.toFixed(2));
-      } else if (
-        calculationType === "distance" &&
-        speedValue > 0 &&
-        totalHours > 0
-      ) {
-        const calculatedDistance = speedValue * totalHours;
-        setDistance(calculatedDistance.toFixed(2));
-      } else if (
-        calculationType === "time" &&
-        distanceValue > 0 &&
-        speedValue > 0
-      ) {
-        const totalHoursCalculated = distanceValue / speedValue;
-        const hoursInt = Math.floor(totalHoursCalculated);
-        const minutesDecimal = (totalHoursCalculated - hoursInt) * 60;
-        const minutesInt = Math.floor(minutesDecimal);
-        const secondsDecimal = (minutesDecimal - minutesInt) * 60;
-        const secondsInt = Math.floor(secondsDecimal);
-        const centisecondsInt = Math.floor((secondsDecimal - secondsInt) * 100);
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      keyboardWillShow
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      keyboardWillHide
+    );
 
-        setHours(hoursInt.toString());
-        setMinutes(minutesInt.toString().padStart(2, "0"));
-        setSeconds(secondsInt.toString().padStart(2, "0"));
-        setCentiseconds(centisecondsInt.toString().padStart(2, "0"));
-      }
-    } catch (error) {
-      console.log("Calculation error:", error);
-    }
-  };
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   // Add this function to format the result for display
   const getFormattedResult = () => {
@@ -391,14 +451,18 @@ export default function CalculatorScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={{ flex: 1 }}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 80} // Adjust for Android tab bar
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
       <ThemedView style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
+        <Animated.ScrollView
+          contentContainerStyle={[
+            styles.scrollContainer,
+            { transform: [{ translateY: animatedViewRef }] }
+          ]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           {/* Type Selector */}
           <View style={styles.typeSelector}>
@@ -434,7 +498,7 @@ export default function CalculatorScreen() {
                     onChangeText={setDistance}
                     keyboardType="numeric"
                     placeholder="e.g. 37"
-                    placeholderTextColor="#8E8E93"
+                    placeholderTextColor="#666"
                   />
                   <UnitDropdown
                     value={distanceUnit}
@@ -461,17 +525,12 @@ export default function CalculatorScreen() {
               <>
                 <InputBox label="Speed">
                   <TextInput
-                    style={[
-                      styles.standardInput,
-                      { color: colorScheme === "dark" ? "#fff" : "#000" },
-                    ]}
+                    style={styles.standardInput}
                     value={speed}
                     onChangeText={setSpeed}
                     keyboardType="numeric"
                     placeholder={`Speed in ${speedUnit}`}
-                    placeholderTextColor={
-                      colorScheme === "dark" ? "#666" : "#999"
-                    }
+                    placeholderTextColor="#666"
                   />
                   <View style={styles.unitSelector}>
                     <UnitDropdown
@@ -505,7 +564,7 @@ export default function CalculatorScreen() {
                     onChangeText={setDistance}
                     keyboardType="numeric"
                     placeholder="Enter distance"
-                    placeholderTextColor="#8E8E93"
+                    placeholderTextColor="#666"
                   />
                   <UnitDropdown
                     value={distanceUnit}
@@ -515,17 +574,12 @@ export default function CalculatorScreen() {
                 </InputBox>
                 <InputBox label="Speed">
                   <TextInput
-                    style={[
-                      styles.standardInput,
-                      { color: colorScheme === "dark" ? "#fff" : "#000" },
-                    ]}
+                    style={styles.standardInput}
                     value={speed}
                     onChangeText={setSpeed}
                     keyboardType="numeric"
                     placeholder={`Speed in ${speedUnit}`}
-                    placeholderTextColor={
-                      colorScheme === "dark" ? "#666" : "#999"
-                    }
+                    placeholderTextColor="#666"
                   />
                   <View style={styles.unitSelector}>
                     <UnitDropdown
@@ -565,7 +619,7 @@ export default function CalculatorScreen() {
           >
             <ThemedText style={styles.clearButtonText}>Clear</ThemedText>
           </TouchableOpacity>
-        </ScrollView>
+        </Animated.ScrollView>
       </ThemedView>
     </KeyboardAvoidingView>
   );
@@ -575,11 +629,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#1C1C1E",
+    paddingBottom: Platform.OS === "android" ? 60 : 0,
   },
   scrollContainer: {
-    padding: 15,
-    alignItems: "center",
-    paddingBottom: Platform.OS === "android" ? 100 : 20,
+    padding: 20,
+    gap: 20,
+    flexGrow: 1,
   },
   typeSelector: {
     flexDirection: "row",
